@@ -1,5 +1,3 @@
-#![feature(duration_millis_float)]
-
 use std::fs::File;
 use std::io::stdout;
 use std::path::Path;
