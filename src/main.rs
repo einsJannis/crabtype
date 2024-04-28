@@ -11,7 +11,17 @@ mod end;
 
 fn main() {
     let mut terminal = terminal::Terminal::new(stdout()).unwrap();
-    let mut game = Game::try_from(File::open(Path::new("prompts.txt")).unwrap()).unwrap();
+    let GAME_WHEN_PROMPT_LOADING_FAILED: Game = Game {
+        text: Vec::from(["Something is wrong with your prompts.txt".into()]),
+        tpm: Default::default(),
+        wpm: Default::default()
+    };
+    let game = if let Ok(mut prompts_file) = File::open(Path::new("prompts.txt")) {
+        Game::try_from(prompts_file).unwrap_or(GAME_WHEN_PROMPT_LOADING_FAILED)
+    } else {
+        GAME_WHEN_PROMPT_LOADING_FAILED
+    };
+
     let game_stage = game.next_round();
     terminal.run(game_stage)
 }

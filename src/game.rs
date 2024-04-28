@@ -36,6 +36,7 @@ impl<S:Stage + HandleKeyEvent> HandleEvent for S {
     }
 }
 
+#[derive(Default)]
 pub struct Stat {
     last : f64,
     average: f64,
@@ -56,8 +57,10 @@ impl fmt::Display for Stat {
     }
 }
 
+
+#[derive(Default)]
 pub struct Game {
-    text: Vec<Box<str>>,
+    pub text: Vec<Box<str>>,
     pub tpm: Stat,
     pub wpm: Stat,
 }
