@@ -2,12 +2,10 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::widgets::Paragraph;
-use crate::game::{Game, HandleKeyEvent, Stage};
+use crate::game::{Game, HandleKeyEvent, Stage, Stat};
 
 pub struct EndStage {
     pub game: Game,
-    pub tpm: f64,
-    pub wpm: f64
 }
 
 impl HandleKeyEvent for EndStage {
@@ -22,9 +20,11 @@ impl HandleKeyEvent for EndStage {
 impl Stage for EndStage {
     fn draw(&self, frame: &mut Frame) {
         let parent_size = frame.size();
+        let game = &self.game;
         frame.render_widget(
-            Paragraph::new(format!("TPM: {:.2} WPM: {:.2}", self.tpm, self.wpm)).centered(),
-            Rect::new(0,parent_size.height/2, parent_size.width, 1)
+            Paragraph::new(format!(
+                "TPM: {}\nWPM: {}", game.tpm, game.wpm)).centered(),
+            Rect::new(0,parent_size.height/2, parent_size.width, 2)
         );
     }
 }

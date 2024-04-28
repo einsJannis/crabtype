@@ -1,3 +1,4 @@
+use core::fmt;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::marker::PhantomData;
@@ -35,13 +36,30 @@ impl<S:Stage + HandleKeyEvent> HandleEvent for S {
     }
 }
 
-pub struct Stats {
+pub struct Stat {
+    last : f64,
     average: f64,
     attempts: usize
 }
 
+impl Stat {
+    pub fn add_value(&mut self, new: f64) -> () {
+        self.attempts += 1;
+        self.last = new;
+        self.average += (new - self.average) / self.attempts as f64 // trust me bro
+    }
+}
+
+impl fmt::Display for Stat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "last: {:.2}, average: {:.2}, attempts: {}", self.last, self.average, self.attempts)
+    }
+}
+
 pub struct Game {
     text: Vec<Box<str>>,
+    pub tpm: Stat,
+    pub wpm: Stat,
 }
 
 impl Game {
@@ -63,6 +81,16 @@ impl TryFrom<File> for Game {
         }
         Ok(Self {
             text: strings,
+            tpm: Stat {
+                last: 0.,
+                average: 0.,
+                attempts: 0,
+            },
+            wpm: Stat {
+                last: 0.,
+                average: 0.,
+                attempts: 0,
+            }
         })
     }
 }

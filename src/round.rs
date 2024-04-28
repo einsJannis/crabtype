@@ -28,14 +28,17 @@ impl Game {
 }
 
 impl RoundStage {
-    fn end(self) -> EndStage {
+    fn end(mut self) -> EndStage {
         let elapsed = self.start_time.unwrap().elapsed();
-        let tpm = (self.index as f64)/elapsed.as_millis() as f64*60000.0;
-        //self.game.average = ((self.game.attempts-1) as f64 * self.game.average + tpm)/self.game.attempts as f64;
-        let wpm = (self.text().chars().filter(|it| *it == ' ').count()+1) as f64/elapsed.as_millis() as f64*60000.0;
+
+        self.game.tpm.add_value(
+            60000.0 * (self.index as f64) /
+                    elapsed.as_millis() as f64);
+        self.game.wpm.add_value(
+            60000.0 * (self.text().chars().filter(|it| *it == ' ').count() + 1) as f64 /
+                                    elapsed.as_millis() as f64);
+
         EndStage {
-            tpm,
-            wpm,
             game: self.game,
         }
     }
