@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Color, Line, Span, Style};
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Paragraph, Wrap};
 use crate::end::EndStage;
 use crate::game::{Game, HandleKeyEvent, Stage};
 
@@ -85,6 +85,6 @@ impl Stage for RoundStage {
             Span::styled(&self.text()[..self.index], Style::new().fg(Color::Green)),
             Span::styled(&self.error, Style::new().fg(Color::Red)),
             Span::styled(&self.text()[self.index..], Style::new().fg(Color::Gray))
-        ])), Rect::new(x, y, width, height));
+        ])).wrap(Wrap::default()), Rect::new(x, y, width, height));
     }
 }
