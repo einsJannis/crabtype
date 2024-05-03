@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::time::Instant;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
@@ -18,7 +19,7 @@ pub struct RoundStage {
 impl Game {
     pub fn next_round(self) -> RoundStage {
         RoundStage {
-            text: self.next_text(),
+            text: self.game_mode.next_text(),
             game: self,
             error: Default::default(),
             start_time: Default::default(),
@@ -30,20 +31,24 @@ impl Game {
 impl RoundStage {
     fn end(mut self) -> EndStage {
         let elapsed = self.start_time.unwrap().elapsed();
-
-        self.game.tpm.add_value(
+        self.game.stats.attempts += 1;
+        self.game.stats.tpm.add_value(
             60000.0 * (self.index as f64) /
-                    elapsed.as_millis() as f64);
-        self.game.wpm.add_value(
+                    elapsed.as_millis() as f64, self.game.stats.attempts);
+        self.game.stats.wpm.add_value(
             60000.0 * (self.text().chars().filter(|it| *it == ' ').count() + 1) as f64 /
-                                    elapsed.as_millis() as f64);
-
+                                    elapsed.as_millis() as f64, self.game.stats.attempts);
+        let failed_to_save =
+            if let Ok(_) = self.game.stats.save(Path::new("stats.toml")) {
+                false
+            } else {true};
         EndStage {
             game: self.game,
+            failed_to_save
         }
     }
     fn text(&self) -> &str {
-        self.game.text(self.text)
+        self.game.game_mode.text(self.text)
     }
 }
 

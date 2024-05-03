@@ -9,3 +9,5 @@ edition = "2021"
 ratatui="*"
 crossterm="*"
 rand="*"
+serde = { version = "*", features = ["derive"] }
+toml="*"

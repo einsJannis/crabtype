@@ -1,13 +1,10 @@
-use core::fmt;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::marker::PhantomData;
-use std::time::{Duration, Instant};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::path::Path;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use rand::{Rng, thread_rng};
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Padding, Paragraph};
-use crate::round::RoundStage;
+use serde::{Deserialize, Serialize};
 
 pub trait Stage: HandleEvent {
     fn draw(&self, frame: &mut Frame);
@@ -36,36 +33,75 @@ impl<S:Stage + HandleKeyEvent> HandleEvent for S {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct Stat {
-    last : f64,
-    average: f64,
-    attempts: usize
+    pub last : f64,
+    pub average: f64,
 }
 
 impl Stat {
-    pub fn add_value(&mut self, new: f64) -> () {
-        self.attempts += 1;
+    pub fn add_value(&mut self, new: f64, attempts: usize) -> () {
         self.last = new;
-        self.average += (new - self.average) / self.attempts as f64 // trust me bro
+        self.average += (new - self.average) / (attempts as f64) // trust me bro
     }
 }
 
-impl fmt::Display for Stat {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "last: {:.2}, average: {:.2}, attempts: {}", self.last, self.average, self.attempts)
-    }
-}
-
-
-#[derive(Default)]
-pub struct Game {
-    pub text: Vec<Box<str>>,
+#[derive(Default, Serialize, Deserialize)]
+pub struct Stats {
+    pub attempts: usize,
     pub tpm: Stat,
     pub wpm: Stat,
 }
 
-impl Game {
+impl Stats {
+    pub fn load_or_default(path: &Path) -> Self {
+        Self::try_from(path).unwrap_or_default()
+    }
+    pub fn save(&self, path: &Path) -> Result<(), std::io::Error> {
+        let mut file = if path.exists() { File::create(path)? } else { File::create_new(path)?  };
+        let error = file.write_all(toml::to_string_pretty(&self).unwrap().as_bytes());
+        let error = if let Err(error) = error { format!("{}",error) } else { String::from("Ok") };
+        Ok(())
+    }
+}
+
+pub enum Either<TA,TB> {
+    A(TA),
+    B(TB),
+}
+
+impl<TA,TB> From<TA> for Either<TA,TB> {
+    fn from(value: TA) -> Self {
+        Self::A(value)
+    }
+}
+
+impl TryFrom<&Path> for Stats {
+    type Error = Either<std::io::Error,toml::de::Error>;
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let mut file = File::open(path)?;
+        let mut string = String::new();
+        file.read_to_string(&mut string)?;
+        toml::from_str(&string).map_err(|err| Either::B(err))
+    }
+}
+
+pub struct GameMode {
+    pub text: Vec<Box<str>>,
+}
+
+impl Default for GameMode {
+    fn default() -> Self {
+        Self {
+            text: Vec::from(["Something is wrong with your prompts.txt".into()]),
+        }
+    }
+}
+    
+impl GameMode {
+    pub fn load_or_default(path: &Path) -> Self {
+        Self::try_from(Path::new("prompts.txt")).unwrap_or_default()
+    }
     pub fn next_text(&self) -> usize {
         thread_rng().gen_range(0..self.text.len())
     }
@@ -74,27 +110,33 @@ impl Game {
     }
 }
 
-impl TryFrom<File> for Game {
+impl TryFrom<&Path> for GameMode {
     type Error = std::io::Error;
 
-    fn try_from(file: File) -> Result<Self, Self::Error> {
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let file = File::open(path)?;
         let mut strings = Vec::new();
         for line in BufReader::new(file).lines() {
             strings.push(line?.into_boxed_str());
         }
         Ok(Self {
             text: strings,
-            tpm: Stat {
-                last: 0.,
-                average: 0.,
-                attempts: 0,
-            },
-            wpm: Stat {
-                last: 0.,
-                average: 0.,
-                attempts: 0,
-            }
+            ..Default::default()
         })
+    }
+}
+
+pub struct Game {
+    pub game_mode: GameMode,
+    pub stats: Stats,
+}
+
+impl Default for Game {
+    fn default() -> Self {
+        Self {
+            game_mode: GameMode::load_or_default(Path::new("prompts.txt")),
+            stats: Stats::load_or_default(Path::new("stats.toml"))
+        }
     }
 }
 
