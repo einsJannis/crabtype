@@ -39,7 +39,7 @@ impl RoundStage {
             60000.0 * (self.text().chars().filter(|it| *it == ' ').count() + 1) as f64 /
                                     elapsed.as_millis() as f64, self.game.stats.attempts);
         let failed_to_save =
-            if let Ok(_) = self.game.stats.save(Path::new("stats.toml")) {
+            if let Ok(_) = self.game.stats.save(&self.game.stats_path) {
                 false
             } else {true};
         EndStage {

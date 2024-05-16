@@ -1,6 +1,7 @@
+use std::fmt::Display;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
-use std::path::Path;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 use rand::{Rng, thread_rng};
 use ratatui::prelude::*;
@@ -54,35 +55,41 @@ pub struct Stats {
 }
 
 impl Stats {
+    fn load(path: &Path) -> Result<Self, LoadError> {
+        fn read(path: &Path) -> Result<String, std::io::Error> {
+            let mut file = File::open(path)?;
+            let mut string = String::new();
+            file.read_to_string(&mut string)?;
+            Ok(string)
+        }
+        toml::from_str(read(path).map_err(|_| LoadError::from(path))?.as_str()).map_err(|_| LoadError::from(path))
+    }
     pub fn load_or_default(path: &Path) -> Self {
-        Self::try_from(path).unwrap_or_default()
+        Self::load(path).unwrap_or_default()
     }
     pub fn save(&self, path: &Path) -> Result<(), std::io::Error> {
-        let mut file = if path.exists() { File::create(path)? } else { File::create_new(path)?  };
-        let error = file.write_all(toml::to_string_pretty(&self).unwrap().as_bytes());
-        let error = if let Err(error) = error { format!("{}",error) } else { String::from("Ok") };
-        Ok(())
+        let mut file = if path.exists() {
+            File::create(path)?
+        } else {
+            File::create_new(path)?
+        };
+        file.write_all(toml::to_string_pretty(self).unwrap().as_bytes())
     }
 }
 
-pub enum Either<TA,TB> {
-    A(TA),
-    B(TB),
+pub struct LoadError {
+    path: Box<str>
 }
 
-impl<TA,TB> From<TA> for Either<TA,TB> {
-    fn from(value: TA) -> Self {
-        Self::A(value)
+impl Display for LoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("Something is wrong with your {}", self.path))
     }
 }
 
-impl TryFrom<&Path> for Stats {
-    type Error = Either<std::io::Error,toml::de::Error>;
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        let mut file = File::open(path)?;
-        let mut string = String::new();
-        file.read_to_string(&mut string)?;
-        toml::from_str(&string).map_err(|err| Either::B(err))
+impl From<&Path> for LoadError {
+    fn from(path: &Path) -> Self {
+        Self { path: path.to_str().unwrap().to_string().into_boxed_str() }
     }
 }
 
@@ -92,15 +99,23 @@ pub struct GameMode {
 
 impl Default for GameMode {
     fn default() -> Self {
-        Self {
-            text: Vec::from(["Something is wrong with your prompts.txt".into()]),
-        }
+        Self::load(Path::new("prompts.txt"))
     }
 }
     
 impl GameMode {
-    pub fn load_or_default(path: &Path) -> Self {
-        Self::try_from(Path::new("prompts.txt")).unwrap_or_default()
+    pub fn load(path: &Path) -> Self {
+        fn inner(path: &Path) -> Result<GameMode, std::io::Error> {
+            let file = File::open(path)?;
+            let mut strings = Vec::new();
+            for line in BufReader::new(file).lines() {
+                strings.push(line?.into_boxed_str());
+            }
+            Ok(GameMode {
+                text: strings,
+            })
+        }
+        inner(path).map_err(|_| LoadError::from(path)).unwrap_or_else(Self::from)
     }
     pub fn next_text(&self) -> usize {
         thread_rng().gen_range(0..self.text.len())
@@ -110,33 +125,25 @@ impl GameMode {
     }
 }
 
-impl TryFrom<&Path> for GameMode {
-    type Error = std::io::Error;
-
-    fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        let file = File::open(path)?;
-        let mut strings = Vec::new();
-        for line in BufReader::new(file).lines() {
-            strings.push(line?.into_boxed_str());
+impl From<LoadError> for GameMode {
+    fn from(value: LoadError) -> Self {
+        Self {
+            text: Vec::from([format!("{}", value).into_boxed_str()])
         }
-        Ok(Self {
-            text: strings,
-            ..Default::default()
-        })
+    }
+}
+
+impl From<&str> for GameMode {
+    fn from(value: &str) -> Self {
+        Self {
+            text: Vec::from([value.into()])
+        }
     }
 }
 
 pub struct Game {
     pub game_mode: GameMode,
+    pub stats_path: PathBuf,
     pub stats: Stats,
-}
-
-impl Default for Game {
-    fn default() -> Self {
-        Self {
-            game_mode: GameMode::load_or_default(Path::new("prompts.txt")),
-            stats: Stats::load_or_default(Path::new("stats.toml"))
-        }
-    }
 }
 
