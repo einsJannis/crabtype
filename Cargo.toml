@@ -1,6 +1,9 @@
 [package]
 name = "crabtype"
 version = "1.0.0"
+authors = "einsJannis"
+readme = "README"
+license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
