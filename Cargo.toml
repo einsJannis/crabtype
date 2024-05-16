@@ -2,7 +2,7 @@
 name = "crabtype"
 version = "1.0.0"
 authors = ["einsJannis"]
-readme = "README"
+readme = "README.md"
 license-file = "LICENSE"
 description = "A TUI based alternative to MonkeyType"
 
